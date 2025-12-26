@@ -109,5 +109,70 @@ if ticker_symbol:
 			)
 			# Render as HTML for full width and left alignment
 			st.markdown(df.to_html(classes='shareholding-table', index=False, border=0, justify='left'), unsafe_allow_html=True)
+
+			# Debug: print the DataFrame
+			# st.write('**DEBUG: Shareholding Pattern DataFrame**')
+			# st.write(df)
+
+			# Plot bar chart using timeline columns as x-axis and shareholding as y-axis
+			import plotly.graph_objects as go
+			# The first column is the category (e.g., Promoters, FIIs, etc.)
+			# The rest of the columns are timeline (e.g., Dec 2023, Mar 2023, ...)
+			if len(df.columns) > 1:
+				timeline_cols = df.columns[1:]
+				categories = [cat for cat in df.iloc[:, 0].tolist() if 'no. of shareholder' not in cat.lower()]
+				import plotly.graph_objects as go
+				cats = [cat for cat in df.iloc[:, 0].tolist() if 'no. of shareholder' not in cat.lower()]
+				n = len(cats)
+				import re
+				# Extract years from timeline columns
+				timeline_cols = df.columns[1:]
+				year_map = {}
+				for col in timeline_cols:
+					match = re.search(r'(\d{4})', col)
+					if match:
+						year = match.group(1)
+						year_map.setdefault(year, []).append(col)
+				years = sorted(year_map.keys())
+				for i in range(0, n, 3):
+					cols = st.columns(3)
+					for j in range(3):
+						if i + j >= n:
+							continue
+						cat = cats[i + j]
+						idx = df[df.iloc[:, 0] == cat].index[0]
+						# For each year, average the values for that year
+						y_vals = []
+						for year in years:
+							vals = []
+							for col in year_map[year]:
+								try:
+									v = float(str(df.loc[idx, col]).replace('%','').replace(',',''))
+									vals.append(v)
+								except Exception:
+									pass
+							y_vals.append(sum(vals)/len(vals) if vals else None)
+						fig = go.Figure()
+						fig.add_trace(go.Bar(
+							x=years,
+							y=y_vals,
+							name=cat,
+							width=[0.3]*len(years),
+							text=[f"<b>{v:.1f}%</b>" if v is not None else '' for v in y_vals],
+							textposition='inside',
+							marker_color='rgba(255, 180, 80, 0.7)',
+						))
+						fig.update_traces(textfont_size=12)
+						fig.update_layout(
+							barmode='group',
+							title_text=f"Shareholding Pattern: {cat}",
+							yaxis=dict(title='Share (%)', range=[0, 100], tickvals=[0, 50, 100], tickfont=dict(size=16)),
+							xaxis=dict(title='Year', tickfont=dict(size=16)),
+							bargap=0.2,
+							plot_bgcolor='rgba(0,0,0,0)',
+							uniformtext_minsize=8,
+							uniformtext_mode='show'
+						)
+						cols[j].plotly_chart(fig, use_container_width=True)
 		else:
 			st.write('Shareholding pattern not found on Screener.in')
